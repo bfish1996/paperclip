@@ -44,3 +44,8 @@ tmp/
 # Playwright
 tests/e2e/test-results/
 tests/e2e/playwright-report/
+
+# Local overrides
+claude-config/
+claude-home/
+docker-compose.override.yml
