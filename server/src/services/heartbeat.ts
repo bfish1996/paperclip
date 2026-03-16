@@ -385,6 +385,79 @@ function deriveCommentId(
   );
 }
 
+interface AssignedWorkRow {
+  id: string;
+  identifier: string | null;
+  title: string;
+  status: string;
+  priority: string;
+}
+
+function buildWorkContextPrompt(
+  agent: { id: string; companyId: string },
+  assignedWork: AssignedWorkRow[],
+  currentIssueId: string | null,
+): string {
+  const inProgress = assignedWork.filter((i) => i.status === "in_progress");
+  const todo = assignedWork.filter((i) => i.status === "todo");
+  const blocked = assignedWork.filter((i) => i.status === "blocked");
+  const other = assignedWork.filter((i) => !["in_progress", "todo", "blocked"].includes(i.status));
+
+  const lines: string[] = [];
+  lines.push("## Your Work Queue");
+  lines.push("");
+
+  if (assignedWork.length === 0) {
+    lines.push("You have no assigned tasks.");
+    lines.push("");
+    lines.push("Check for new assignments:");
+    lines.push(`\`GET /api/companies/${agent.companyId}/issues?assigneeAgentId=${agent.id}&status=todo,in_progress,in_qa,merging,blocked\``);
+    lines.push("");
+    lines.push("If no work is available, you may idle.");
+    return lines.join("\n");
+  }
+
+  lines.push(`You have ${assignedWork.length} assigned task(s).`);
+  lines.push("");
+
+  const formatIssue = (issue: AssignedWorkRow) => {
+    const id = issue.identifier ?? issue.id.slice(0, 8);
+    const current = issue.id === currentIssueId ? " **(current wake target)**" : "";
+    return `- **${id}**: ${issue.title} [${issue.priority}]${current}`;
+  };
+
+  if (inProgress.length > 0) {
+    lines.push("### In Progress (finish these first)");
+    inProgress.forEach((i) => lines.push(formatIssue(i)));
+    lines.push("");
+  }
+  if (todo.length > 0) {
+    lines.push("### Todo (pick up next)");
+    todo.forEach((i) => lines.push(formatIssue(i)));
+    lines.push("");
+  }
+  if (blocked.length > 0) {
+    lines.push("### Blocked (unblock if you can, otherwise escalate)");
+    blocked.forEach((i) => lines.push(formatIssue(i)));
+    lines.push("");
+  }
+  if (other.length > 0) {
+    lines.push("### Other");
+    other.forEach((i) => lines.push(`- **${i.identifier ?? i.id.slice(0, 8)}**: ${i.title} [${i.status}]`));
+    lines.push("");
+  }
+
+  lines.push("### Heartbeat Protocol");
+  lines.push("1. **Finish in-progress work first** — do not start new tasks until current work is done or blocked");
+  lines.push("2. **Checkout before working** — `POST /api/issues/{issueId}/checkout` with `X-Paperclip-Run-Id` header");
+  lines.push("3. **Update status when done** — `PATCH /api/issues/{issueId}` with a comment explaining what was done");
+  lines.push("4. **If blocked, say why** — set status to `blocked` with a comment on what needs unblocking and by whom");
+  lines.push("5. **Pick up the next todo task** if you finish your current work and have capacity");
+  lines.push("6. **Escalate when stuck** — use your chain of command");
+
+  return lines.join("\n");
+}
+
 function enrichWakeContextSnapshot(input: {
   contextSnapshot: Record<string, unknown>;
   reason: string | null;
@@ -1575,6 +1648,32 @@ export function heartbeatService(db: Db) {
       delete context.paperclipSessionRotationReason;
       delete context.paperclipPreviousSessionId;
     }
+
+    // Enrich context with agent's full work queue so the heartbeat prompt is work-aware.
+    // This applies to ALL heartbeat sources (timer, assignment, on_demand) so agents
+    // always know their complete picture of assigned work.
+    const assignedWork = await db
+      .select({
+        id: issues.id,
+        identifier: issues.identifier,
+        title: issues.title,
+        status: issues.status,
+        priority: issues.priority,
+      })
+      .from(issues)
+      .where(
+        and(
+          eq(issues.assigneeAgentId, agent.id),
+          eq(issues.companyId, agent.companyId),
+          inArray(issues.status, ["in_progress", "todo", "in_qa", "merging", "blocked"]),
+        ),
+      )
+      .orderBy(
+        sql`CASE status WHEN 'in_progress' THEN 0 WHEN 'todo' THEN 1 WHEN 'in_qa' THEN 2 WHEN 'merging' THEN 3 WHEN 'blocked' THEN 4 ELSE 5 END`,
+        sql`CASE priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END`,
+      );
+    context.paperclipAssignedWork = assignedWork;
+    context.paperclipWorkContext = buildWorkContextPrompt(agent, assignedWork, issueId ?? null);
 
     const runtimeForAdapter = {
       sessionId: runtimeSessionIdForAdapter,
