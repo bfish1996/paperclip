@@ -547,6 +547,9 @@ export function usePluginSlots(filters: SlotFilters): UsePluginSlotsResult {
     queryKey: queryKeys.plugins.uiContributions,
     queryFn: () => pluginsApi.listUiContributions(),
     enabled: queryEnabled,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
+    staleTime: 60_000,
   });
 
   // Kick off dynamic imports for any new plugin contributions.

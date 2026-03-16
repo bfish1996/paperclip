@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { CircleDot, Plus, Filter, ArrowUpDown, Layers, Check, X, ChevronRight, List, Columns3, User, Search } from "lucide-react";
+import { CircleDot, Plus, Filter, ArrowUpDown, Layers, Check, X, ChevronRight, List, Columns3, User, Search, FolderKanban } from "lucide-react";
 import { KanbanBoard } from "./KanbanBoard";
 import type { Issue } from "@paperclipai/shared";
 
@@ -40,9 +40,10 @@ export type IssueViewState = {
   priorities: string[];
   assignees: string[];
   labels: string[];
+  projects: string[];
   sortField: "status" | "priority" | "title" | "created" | "updated";
   sortDir: "asc" | "desc";
-  groupBy: "status" | "priority" | "assignee" | "none";
+  groupBy: "status" | "priority" | "assignee" | "project" | "none";
   viewMode: "list" | "board";
   collapsedGroups: string[];
 };
@@ -52,6 +53,7 @@ const defaultViewState: IssueViewState = {
   priorities: [],
   assignees: [],
   labels: [],
+  projects: [],
   sortField: "updated",
   sortDir: "desc",
   groupBy: "none",
@@ -104,6 +106,12 @@ function applyFilters(issues: Issue[], state: IssueViewState, currentUserId?: st
     });
   }
   if (state.labels.length > 0) result = result.filter((i) => (i.labelIds ?? []).some((id) => state.labels.includes(id)));
+  if (state.projects.length > 0) {
+    result = result.filter((i) => {
+      if (state.projects.includes("__no_project")) return !i.projectId;
+      return i.projectId != null && state.projects.includes(i.projectId);
+    });
+  }
   return result;
 }
 
@@ -135,6 +143,7 @@ function countActiveFilters(state: IssueViewState): number {
   if (state.priorities.length > 0) count++;
   if (state.assignees.length > 0) count++;
   if (state.labels.length > 0) count++;
+  if (state.projects.length > 0) count++;
   return count;
 }
 
@@ -145,11 +154,18 @@ interface Agent {
   name: string;
 }
 
+interface ProjectRef {
+  id: string;
+  name: string;
+  color?: string | null;
+}
+
 interface IssuesListProps {
   issues: Issue[];
   isLoading?: boolean;
   error?: Error | null;
   agents?: Agent[];
+  projects?: ProjectRef[];
   liveIssueIds?: Set<string>;
   projectId?: string;
   viewStateKey: string;
@@ -165,6 +181,7 @@ export function IssuesList({
   isLoading,
   error,
   agents,
+  projects,
   liveIssueIds,
   projectId,
   viewStateKey,
@@ -268,6 +285,15 @@ export function IssuesList({
         .filter((p) => groups[p]?.length)
         .map((p) => ({ key: p, label: statusLabel(p), items: groups[p]! }));
     }
+    if (viewState.groupBy === "project") {
+      const projectNameMap = new Map((projects ?? []).map((p) => [p.id, p.name]));
+      const groups = groupBy(filtered, (i) => i.projectId ?? "__no_project");
+      return Object.keys(groups).map((key) => ({
+        key,
+        label: key === "__no_project" ? "No project" : (projectNameMap.get(key) ?? key.slice(0, 8)),
+        items: groups[key]!,
+      }));
+    }
     // assignee
     const groups = groupBy(
       filtered,
@@ -283,7 +309,7 @@ export function IssuesList({
             : (agentName(key) ?? key.slice(0, 8)),
       items: groups[key]!,
     }));
-  }, [filtered, viewState.groupBy, agents, agentName, currentUserId]);
+  }, [filtered, viewState.groupBy, agents, projects, agentName, currentUserId]);
 
   const newIssueDefaults = (groupKey?: string) => {
     const defaults: Record<string, string> = {};
@@ -362,7 +388,7 @@ export function IssuesList({
                     className="h-3 w-3 ml-1 hidden sm:block"
                     onClick={(e) => {
                       e.stopPropagation();
-                      updateView({ statuses: [], priorities: [], assignees: [], labels: [] });
+                      updateView({ statuses: [], priorities: [], assignees: [], labels: [], projects: [] });
                     }}
                   />
                 )}
@@ -375,7 +401,7 @@ export function IssuesList({
                   {activeFilterCount > 0 && (
                     <button
                       className="text-xs text-muted-foreground hover:text-foreground"
-                      onClick={() => updateView({ statuses: [], priorities: [], assignees: [], labels: [] })}
+                      onClick={() => updateView({ statuses: [], priorities: [], assignees: [], labels: [], projects: [] })}
                     >
                       Clear
                     </button>
@@ -497,6 +523,55 @@ export function IssuesList({
                     )}
                   </div>
                 </div>
+
+                {/* Project filter */}
+                {projects && projects.length > 0 && (
+                  <>
+                    <div className="border-t border-border" />
+                    <div className="space-y-1">
+                      <span className="text-xs text-muted-foreground">Project</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                            viewState.projects.length === 0
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                          }`}
+                          onClick={() => updateView({ projects: [] })}
+                        >
+                          All
+                        </button>
+                        <button
+                          className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                            viewState.projects.includes("__no_project")
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                          }`}
+                          onClick={() => updateView({ projects: viewState.projects.includes("__no_project") ? viewState.projects.filter((p) => p !== "__no_project") : [...viewState.projects, "__no_project"] })}
+                        >
+                          No project
+                        </button>
+                        {projects.map((project) => {
+                          const isActive = viewState.projects.includes(project.id);
+                          return (
+                            <button
+                              key={project.id}
+                              className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                                isActive
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                              }`}
+                              onClick={() => updateView({ projects: isActive ? viewState.projects.filter((p) => p !== project.id) : [...viewState.projects, project.id] })}
+                            >
+                              {project.color && <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: project.color }} />}
+                              {project.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </PopoverContent>
           </Popover>
@@ -560,6 +635,7 @@ export function IssuesList({
                     ["status", "Status"],
                     ["priority", "Priority"],
                     ["assignee", "Assignee"],
+                    ["project", "Project"],
                     ["none", "None"],
                   ] as const).map(([value, label]) => (
                     <button
