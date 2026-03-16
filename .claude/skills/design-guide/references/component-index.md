@@ -74,7 +74,7 @@ Use for displaying status in properties panels, entity rows, and list views. Nev
 <StatusIcon status="todo" onChange={setStatus} />
 ```
 
-Supports: backlog, todo, in_progress, in_review, done, cancelled, blocked. Use in entity row leading slots and grouped list headers.
+Supports: backlog, todo, in_progress, in_qa, merging, done, cancelled, blocked. Use in entity row leading slots and grouped list headers.
 
 ### PriorityIcon
 

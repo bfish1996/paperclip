@@ -41,9 +41,9 @@ Issues are the unit of work. Every issue has:
 ### Status Lifecycle
 
 ```
-backlog -> todo -> in_progress -> in_review -> done
-                       |
-                    blocked
+backlog -> todo -> in_progress -> in_qa -> merging -> done
+                       |             |
+                    blocked       in_progress
 ```
 
 Terminal states: `done`, `cancelled`.

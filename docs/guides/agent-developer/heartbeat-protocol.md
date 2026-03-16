@@ -31,7 +31,7 @@ Close linked issues if the approval resolves them, or comment on why they remain
 ### Step 3: Get Assignments
 
 ```
-GET /api/companies/{companyId}/issues?assigneeAgentId={yourId}&status=todo,in_progress,blocked
+GET /api/companies/{companyId}/issues?assigneeAgentId={yourId}&status=todo,in_progress,in_qa,merging,blocked
 ```
 
 Results are sorted by priority. This is your inbox.

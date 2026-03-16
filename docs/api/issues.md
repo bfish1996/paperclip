@@ -184,8 +184,8 @@ DELETE /api/attachments/{attachmentId}
 ## Issue Lifecycle
 
 ```
-backlog -> todo -> in_progress -> in_review -> done
-                       |              |
+backlog -> todo -> in_progress -> in_qa -> merging -> done
+                       |             |
                     blocked       in_progress
 ```
 

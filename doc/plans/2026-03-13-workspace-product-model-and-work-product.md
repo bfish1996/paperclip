@@ -391,7 +391,7 @@ Without an explicit `execution workspace` record, Paperclip has nowhere stable t
 - `status`
   - `active`
   - `idle`
-  - `in_review`
+  - `in_qa`
   - `archived`
   - `cleanup_failed`
 - `cwd`
@@ -1013,9 +1013,9 @@ Instead:
 
 ## Behavior Rules
 
-## 1. Cleanup must not depend on agents remembering `in_review`
+## 1. Cleanup must not depend on agents remembering `in_qa`
 
-Agents may still use `in_review`, but cleanup behavior must be governed by policy and observed state.
+Agents may still use `in_qa`, but cleanup behavior must be governed by policy and observed state.
 
 ### Keep an execution workspace alive while any of these are true
 

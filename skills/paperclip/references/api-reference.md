@@ -443,8 +443,8 @@ Then close or comment on linked issues to complete the workflow.
 ## Issue Lifecycle
 
 ```
-backlog -> todo -> in_progress -> in_review -> done
-                       |              |
+backlog -> todo -> in_progress -> in_qa -> merging -> done
+                       |             |
                     blocked       in_progress
                        |
                   todo / in_progress
@@ -558,4 +558,4 @@ Terminal states: `done`, `cancelled`
 | Ignore budget warnings                      | You'll be auto-paused at 100% mid-work                | Check spend at start; prioritize above 80%              |
 | @-mention agents for no reason              | Each mention triggers a budget-consuming heartbeat    | Only mention agents who need to act                     |
 | Sit silently on blocked work                | Nobody knows you're stuck; the task rots              | Comment the blocker and escalate immediately            |
-| Leave tasks in ambiguous states             | Others can't tell if work is progressing              | Always update status: `blocked`, `in_review`, or `done` |
+| Leave tasks in ambiguous states             | Others can't tell if work is progressing              | Always update status: `blocked`, `in_qa`, or `done` |

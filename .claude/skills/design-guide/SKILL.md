@@ -116,7 +116,8 @@ Defined in `StatusBadge.tsx` and `StatusIcon.tsx`:
 | archived, planned, backlog, cancelled | Neutral gray | Various |
 | todo | Blue | Issues |
 | in_progress | Indigo | Issues |
-| in_review | Violet | Issues |
+| in_qa | Purple | Issues |
+| merging | Teal | Issues |
 
 ### Priority Icons
 
